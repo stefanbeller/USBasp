@@ -1,4 +1,7 @@
 # USBasp - USB programmer for Atmel AVR controllers
 # Copy this file to /etc/udev/rules.d so
 
-SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", SYSFS{idVendor}=="16c0", SYSFS{idProduct}=="05dc", MODE="0666"
+# According to http://www.ladyada.net/make/usbtinyisp/avrdude.html
+# The udev examples given don't work on some systems as the SYSFS parameter is deprecated. 
+# The following rule works on recent Ubuntu systems and should probably work on other newer Linux systems: 
+SUBSYSTEM=="usb", ATTR{product}=="USBasp", ATTR{idProduct}=="05dc", ATTRS{idVendor}=="16c0", MODE="0666"
