@@ -30,6 +30,9 @@ void ispConnect();
 /* Close connection to target device */
 void ispDisconnect();
 
+/* Prepare to listen to target device */
+void spiInit();
+
 /* read an write a byte from isp using software (slow) */
 uchar ispTransmit_sw(uchar send_byte);
 

@@ -27,6 +27,14 @@
 
 static uchar replyBuffer[8];
 
+// choose size to 2^8, so comStart, comEnd can wrap around as ringbuffer
+// indexes.
+static uchar comBuffer[256];
+static uchar comStart = 0;
+static uchar comStop = 0;
+
+unsigned int blink_counter;
+
 static uchar prog_state = PROG_STATE_IDLE;
 static uchar prog_sck = USBASP_ISP_SCK_AUTO;
 
@@ -36,6 +44,13 @@ static unsigned int prog_nbytes = 0;
 static unsigned int prog_pagesize;
 static uchar prog_blockflags;
 static uchar prog_pagecounter;
+
+
+ISR(SPI_STC_vect )
+{
+    comBuffer[comStop] = SPDR;
+    comStop ++;
+}
 
 uchar usbFunctionSetup(uchar data[8]) {
 
@@ -190,6 +205,23 @@ uchar usbFunctionSetup(uchar data[8]) {
 		replyBuffer[2] = 0;
 		replyBuffer[3] = 0;
 		len = 4;
+
+	} else if (data[1] == USBASP_FUNC_SPI_RECVSTART) {
+		spiInit();
+		prog_state = PROG_STATE_SERIAL;
+
+	} else if (data[1] == USBASP_FUNC_SPI_RECVSTOP) {
+		ledRedOff();
+		ispDisconnect();
+		prog_state = PROG_STATE_IDLE;
+
+	} else if (data[1] == USBASP_FUNC_SPI_RECV) {
+		len = 0;
+		while (comStart != comStop && len < 8) {
+			replyBuffer[len] = comBuffer[comStart];
+			comStart ++;
+			len ++;
+		}
 	}
 
 	usbMsgPtr = replyBuffer;
@@ -334,6 +366,12 @@ int main(void) {
 	sei();
 	for (;;) {
 		usbPoll();
+		if (prog_state == PROG_STATE_SERIAL) {
+			if (--blink_counter == 0) {
+				toggleLedRed();
+				blink_counter = (unsigned int)(1UL << 15);
+			}
+		}
 	}
 	return 0;
 }

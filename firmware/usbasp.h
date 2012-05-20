@@ -30,6 +30,10 @@
 #define USBASP_FUNC_TPI_WRITEBLOCK   16
 #define USBASP_FUNC_GETCAPABILITIES 127
 
+#define USBASP_FUNC_SPI_RECVSTART 32
+#define USBASP_FUNC_SPI_RECV 33
+#define USBASP_FUNC_SPI_RECVSTOP 34
+
 /* USBASP capabilities */
 #define USBASP_CAP_0_TPI    0x01
 
@@ -41,6 +45,7 @@
 #define PROG_STATE_WRITEEEPROM  4
 #define PROG_STATE_TPI_READ     5
 #define PROG_STATE_TPI_WRITE    6
+#define PROG_STATE_SERIAL       7
 
 /* Block mode flags */
 #define PROG_BLOCKFLAG_FIRST    1
@@ -66,5 +71,14 @@
 #define ledRedOff()   PORTC |= (1 << PC1)
 #define ledGreenOn()  PORTC &= ~(1 << PC0)
 #define ledGreenOff() PORTC |= (1 << PC0)
+
+#define isLedRedOff()   (PORTC & (1 << PC1))
+#define isLedRedOn()    ~(isLedRedOff())
+#define isLedGreenOff() (PORTC & (1 << PC0))
+#define isLedGreenOn()  ~(isLedGreenOff())
+
+#define toggleLedRed()  PORTC ^= (1 << PC1)
+#define toggleLedGreen()  PORTC ^= (1 << PC0)
+
 
 #endif /* USBASP_H_ */

@@ -140,6 +140,15 @@ void ispDisconnect() {
 	spiHWdisable();
 }
 
+void spiInit() {
+	/* Set MISO output, all others input */
+	ISP_DDR = (1 << ISP_MISO);
+	/* Pull up SS' */
+	ISP_OUT = (1 << ISP_RST);
+	/* Enable SPI, slave mode */
+	SPCR = (1 << SPE | 1<< SPIE);
+}
+
 uchar ispTransmit_sw(uchar send_byte) {
 
 	uchar rec_byte = 0;
