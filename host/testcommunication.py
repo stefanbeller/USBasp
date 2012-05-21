@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 
-#import usb.core
-#import usb.util
-
 import usb
+import time
 
 asp = None
 busses = usb.busses()
@@ -35,6 +33,7 @@ try:
     enableSerialMode(handle)
     while True:
         data = getData(handle)
+        time.sleep(0.01)
         if len(data):
             print data
 
