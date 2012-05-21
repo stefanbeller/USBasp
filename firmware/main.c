@@ -368,14 +368,14 @@ int main(void) {
 #ifdef TEST_TARGET_AS_SPI_MASTER
 	DDRB = (1 << PB2 | 1 << PB3 | 1 << PB5);
 	PORTB &= (1 << PB2);
-	SPCR = (1 << SPE | 1 << MSTR | 1 << SPR1 | 1 << SPR0);
+	SPCR = (1 << SPE | 1 << MSTR);
 	sei();
 	for (;;) {
-		if (--blink_counter == 0) {
-			toggleLedRed();
-			blink_counter = (unsigned int)(1UL << 19);
-			SPDR = i++;
-		}
+		clockWait(30); // wait 9,6 ms
+		toggleLedRed();
+		SPDR = j++;
+		clockWait(1); // wait 320 us
+		SPDR = j++;
 	}
 #endif
 
