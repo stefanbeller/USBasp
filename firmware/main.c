@@ -46,7 +46,8 @@ static uchar prog_blockflags;
 static uchar prog_pagecounter;
 
 
-ISR(SPI_STC_vect )
+
+ISR(SPI_STC_vect, ISR_NOBLOCK)
 {
     comBuffer[comStop] = SPDR;
     comStop ++;
