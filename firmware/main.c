@@ -376,6 +376,8 @@ int main(void) {
 		SPDR = j++;
 		clockWait(1); // wait 320 us
 		SPDR = j++;
+		if (j >= 'Z')
+			j = 'A';
 	}
 #endif
 
