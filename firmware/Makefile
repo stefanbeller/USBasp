@@ -6,10 +6,30 @@
 
 # TARGET=atmega8    HFUSE=0xc9  LFUSE=0xef
 # TARGET=atmega48   HFUSE=0xdd  LFUSE=0xff
+# TARGET=atmega88   HFUSE=0xdd  LFUSE=0xff
 # TARGET=at90s2313
-TARGET=atmega8
-HFUSE=0xc9
-LFUSE=0xef
+ifndef TARGET
+	TARGET=atmega8
+endif
+
+ifeq ($(TARGET),atmega8)
+    HFUSE=0xc9
+    LFUSE=0xef
+endif
+ifeq ($(TARGET),atmega48)
+    HFUSE=0xdd
+    LFUSE=0xff
+endif
+ifeq ($(TARGET),atmega88)
+    HFUSE=0xdd
+    LFUSE=0xff
+endif
+ifeq ($(TARGET),at90s2313)
+    HFUSE=0xc9
+    LFUSE=0xef
+endif
+
+
 
 
 # ISP=bsd      PORT=/dev/parport0
@@ -17,17 +37,48 @@ LFUSE=0xef
 # ISP=stk500   PORT=/dev/ttyS1
 # ISP=usbasp   PORT=/dev/usb/ttyUSB0
 # ISP=stk500v2 PORT=/dev/ttyUSB0
-ISP=usbasp
-PORT=/dev/usb/ttyUSB0
+# ISP=avrisp   PORT=/dev/ttyUSB0 -BITRATE=-b 19200
+ifndef ISP
+	ISP=usbasp
+endif
+
+ifeq ($(ISP),bsd)
+    _PORT=/dev/parport0
+endif
+ifeq ($(ISP),ponyser)
+    _PORT=/dev/ttyS1
+endif
+ifeq ($(ISP),stk500)
+    _PORT=/dev/ttyS1
+endif
+ifeq ($(ISP),usbasp)
+    _PORT=/dev/usb/ttyUSB0
+endif
+ifeq ($(ISP),stk500v2)
+    _PORT=/dev/ttyUSB0
+endif
+ifeq ($(ISP),avrisp)
+    _PORT=/dev/ttyUSB0
+    _BITRATE=-b 19200
+endif
+
+ifndef PORT
+	PORT=$(_PORT)
+endif
+
+ifndef BITRATE
+	BITRATE=$(_BITRATE)
+endif
+
 
 help:
 	@echo "Usage: make                same as make help"
 	@echo "       make help           same as make"
-	@echo "       make main.hex       create main.hex"
+	@echo "       [ISP=xxx] [TARGET=yyy] [PORT=/dev/tttt] make main.hex       create main.hex"
 	@echo "       make clean          remove redundant data"
 	@echo "       make disasm         disasm main"
-	@echo "       make flash          upload main.hex into flash"
-	@echo "       make fuses          program fuses"
+	@echo "       [ISP=xxx] [TARGET=yyy] [PORT=/dev/tttt] make flash          upload main.hex into flash"
+	@echo "       [ISP=xxx] [TARGET=yyy] [PORT=/dev/tttt] make fuses          program fuses"
 	@echo "       make avrdude        test avrdude"
 	@echo "Current values:"
 	@echo "       TARGET=${TARGET}"
@@ -36,6 +87,19 @@ help:
 	@echo "       CLOCK=12000000"
 	@echo "       ISP=${ISP}"
 	@echo "       PORT=${PORT}"
+	@echo "Possible values for ISP:"
+	@echo "       bsd"
+	@echo "       ponyser"
+	@echo "       stk500"
+	@echo "       usbasp"
+	@echo "       stk500v2"
+	@echo "       avrisp (through arduino see https://www.arduino.cc/en/Tutorial/ArduinoISP)"
+	@echo "Possible values for TARGET:"
+	@echo "       atmega8"
+	@echo "       atmega48"
+	@echo "       atmega88"
+	@echo "       at90s2313"
+	
 
 all: main.hex
 	make flash
@@ -79,13 +143,13 @@ cpp:
 	$(COMPILE) -E main.c
 
 flash:
-	avrdude -c ${ISP} -p ${TARGET} -P ${PORT} -U flash:w:main.hex
+	avrdude -c ${ISP} -p ${TARGET} -P ${_PORT} $(BITRATE) -U flash:w:main.hex
 
 fuses:
-	avrdude -c ${ISP} -p ${TARGET} -P ${PORT} -u -U hfuse:w:$(HFUSE):m -U lfuse:w:$(LFUSE):m
+	avrdude -c ${ISP} -p ${TARGET} -P ${_PORT} $(BITRATE) -u -U hfuse:w:$(HFUSE):m -U lfuse:w:$(LFUSE):m
 
 avrdude:
-	avrdude -c ${ISP} -p ${TARGET} -P ${PORT} -v
+	avrdude -c ${ISP} -p ${TARGET} -P ${_PORT} $(BITRATE) -v
 
 # Fuse atmega8 high byte HFUSE:
 # 0xc9 = 1 1 0 0   1 0 0 1 <-- BOOTRST (boot reset vector at 0x0000)
