@@ -1,7 +1,6 @@
 /**
  * \brief Header for tpi
  * \file tpi.h
- * \author S³awomir Fraœ
  */
 #ifndef __TPI_H__
 #define __TPI_H__
@@ -34,14 +33,7 @@ uint8_t tpi_recv_byte(void);
  * \param dptr Pointer to dest memory block
  * \param len Length of read
  */
-void tpi_read_block(uint16_t addr, uint8_t* dptr, uint8_t len);
-/**
- * Write block
- * \param addr Address to program
- * \param sptr Pointer to source block
- * \param len Length of write
- */
-void tpi_write_block(uint16_t addr, const uint8_t* sptr, uint8_t len);
 
+void tpi_pr_update(uint16_t addr);
 
 #endif /*__TPI_H__*/

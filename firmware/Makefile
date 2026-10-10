@@ -4,12 +4,33 @@
 #   20061120   Hanns-Konrad Unger   help: and TARGET=atmega48 added
 #
 
+# crystal frequency
+#F_CPU=12000000UL
+#F_CPU=16000000UL
+
 # TARGET=atmega8    HFUSE=0xc9  LFUSE=0xef
 # TARGET=atmega48   HFUSE=0xdd  LFUSE=0xff
 # TARGET=at90s2313
 TARGET=atmega8
+CFLAGS += -DF_CPU=12000000UL
 HFUSE=0xc9
 LFUSE=0xef
+
+# Добавьте в начало Makefile размеры памяти для разных микроконтроллеров
+ifeq ($(TARGET), atmega8)
+  FLASH_SIZE = 8192
+  RAM_SIZE = 1024
+  EEPROM_SIZE = 512
+else ifeq ($(TARGET), atmega328p)
+  FLASH_SIZE = 32768
+  RAM_SIZE = 2048
+  EEPROM_SIZE = 1024
+else
+  FLASH_SIZE = 8192
+  RAM_SIZE = 1024
+  EEPROM_SIZE = 512
+endif
+
 
 
 # ISP=bsd      PORT=/dev/parport0
@@ -17,8 +38,8 @@ LFUSE=0xef
 # ISP=stk500   PORT=/dev/ttyS1
 # ISP=usbasp   PORT=/dev/usb/ttyUSB0
 # ISP=stk500v2 PORT=/dev/ttyUSB0
-ISP=usbasp
-PORT=/dev/usb/ttyUSB0
+#PORT=/dev/usb/ttyUSB0
+PORT=usb
 
 help:
 	@echo "Usage: make                same as make help"
@@ -37,12 +58,26 @@ help:
 	@echo "       ISP=${ISP}"
 	@echo "       PORT=${PORT}"
 
-all: main.hex
-	make flash
+SRC += tpi.S
+#CFLAGS += -fexec-charset=CP866 -finput-charset=UTF-8
 
-COMPILE = avr-gcc -Wall -O2 -Iusbdrv -I. -mmcu=$(TARGET) # -DDEBUG_LEVEL=2
+#COMPILE = avr-gcc -Wall -Wextra -Os -flto -std=gnu99 -Iusbdrv -I. -mmcu=$(TARGET) # -DDEBUG_LEVEL=2
+# Опции компилятора
+CFLAGS  = -Wall -Wextra -Os -std=gnu99 -Iusbdrv -I. -mmcu=$(TARGET)
+CFLAGS += -flto -ffunction-sections -fdata-sections
+CFLAGS += -fno-jump-tables 
+CFLAGS += -fmerge-all-constants
+# Убирает дублирующиеся функции из инстанцирований шаблонов
+CFLAGS += -fipa-icf -fipa-icf-functions -fipa-icf-variables
+# Не разделяет wide-типы (uint32_t остаётся в регистрах парах, меньше mov)
+CFLAGS += -fno-split-wide-types
 
-OBJECTS = usbdrv/usbdrv.o usbdrv/usbdrvasm.o usbdrv/oddebug.o isp.o clock.o tpi.o main.o
+# Опции линковщика
+LDFLAGS = -Wl,--gc-sections -Wl,--relax -flto
+
+COMPILE = avr-gcc $(CFLAGS)
+
+OBJECTS = usbdrv/usbdrv.o usbdrv/usbdrvasm.o usbdrv/oddebug.o isp.o clock.o tpi.o main.o i2c.o microwire.o 
 
 .c.o:
 	$(COMPILE) -c $< -o $@
@@ -63,11 +98,69 @@ clean:
 
 # file targets:
 main.bin:	$(OBJECTS)
-	$(COMPILE) -o main.bin $(OBJECTS) -Wl,-Map,main.map
+	$(COMPILE) $(OBJECTS) $(LDFLAGS) -Wl,-Map,main.map -o main.bin
 
 main.hex:	main.bin
 	rm -f main.hex main.eep.hex
 	avr-objcopy -j .text -j .data -O ihex main.bin main.hex
+	@echo ""
+	@echo "--- Memory Usage for $(TARGET) ---"	
+	@echo "File sizes:"
+	@echo "  ELF: `wc -c < main.bin` bytes (with debug info)"
+	@echo "  HEX: `wc -c < main.hex` bytes (program file)"
+	@echo ""
+	@echo "Microcontroller memory usage:"
+	@avr-size -A main.bin > _size.tmp
+	@awk 'BEGIN {flash=0; ram=0; eeprom=0} \
+	/\.text/ {flash += $$2} \
+	/\.data/ {flash += $$2; ram += $$2} \
+	/\.bss/  {ram += $$2} \
+	/\.eeprom/ {eeprom += $$2} \
+	END { \
+	printf("%d %d %d\n", flash, ram, eeprom); \
+  	}' _size.tmp | \
+	while read flash ram eeprom; do \
+  	flash_pct=$$(echo "scale=1; $$flash * 100 / $(FLASH_SIZE)" | bc); \
+  	ram_pct=$$(echo "scale=1; $$ram * 100 / $(RAM_SIZE)" | bc); \
+  	eeprom_pct=$$(echo "scale=1; $$eeprom * 100 / $(EEPROM_SIZE)" | bc); \
+  	\
+  	# Flash color \
+  	if [ $$(echo "$$flash_pct < 70" | bc -l) -eq 1 ]; then \
+    	flash_color="\033[0;32m"; \
+  	elif [ $$(echo "$$flash_pct < 85" | bc -l) -eq 1 ]; then \
+    	flash_color="\033[1;33m"; \
+	 else \
+    	flash_color="\033[0;31m"; \
+  	fi; \
+  	\
+  	# RAM color \
+	if [ $$(echo "$$ram_pct < 70" | bc -l) -eq 1 ]; then \
+ 	ram_color="\033[0;32m"; \
+  	elif [ $$(echo "$$ram_pct < 85" | bc -l) -eq 1 ]; then \
+    	ram_color="\033[1;33m"; \
+  	else \
+    	ram_color="\033[0;31m"; \
+  	fi; \
+  	\
+  	# EEPROM color \
+  	if [ $$(echo "$$eeprom_pct < 70" | bc -l) -eq 1 ]; then \
+    	eeprom_color="\033[0;32m"; \
+  	elif [ $$(echo "$$eeprom_pct < 85" | bc -l) -eq 1 ]; then \
+    	eeprom_color="\033[1;33m"; \
+  	else \
+   	eeprom_color="\033[0;32m"; \
+  	fi; \
+  	\
+  	printf "  Flash:  $${flash_color}%5d / %4d bytes (%5.1f%%)$$\033[0m\n" $$flash $(FLASH_SIZE) $$flash_pct; \
+  	printf "  RAM:    $${ram_color}%5d / %4d bytes (%5.1f%%)$$\033[0m\n" $$ram $(RAM_SIZE) $$ram_pct; \
+  	printf "  EEPROM: $${eeprom_color}%5d / %4d bytes (%5.1f%%)$$\033[0m\n" $$eeprom $(EEPROM_SIZE) $$eeprom_pct; \
+	done
+	@echo ""
+	@echo "Section details:"
+	@awk '/\.(text|data|bss|eeprom)/ {printf("  %-10s %6d bytes\n", $$1, $$2)}' _size.tmp
+	@rm -f _size.tmp
+	@echo "----------------------------------"
+
 #	./checksize main.bin
 # do the checksize script as our last action to allow successful compilation
 # on Windows with WinAVR where the Unix commands will fail.
@@ -78,7 +171,7 @@ disasm:	main.bin
 cpp:
 	$(COMPILE) -E main.c
 
-flash:
+flash:   main.hex
 	avrdude -c ${ISP} -p ${TARGET} -P ${PORT} -U flash:w:main.hex
 
 fuses:
